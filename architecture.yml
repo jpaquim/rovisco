@@ -1,0 +1,48 @@
+title: architecture
+
+cli:
+  tech: rust
+  type: binary crate
+  inputs: command line arguments
+  outputs: target code
+  functions:
+    - parse command line arguments into configuration
+    - drive compiler using configuration
+    - provide usage information
+  dependencies: compiler
+
+compiler:
+  tech: rust
+  type: library crate
+  inputs: file name
+  outputs: target code
+  functions:
+    - read the file contents
+    - parse the file contents into script, style, and template sections
+  dependencies: [parser, transpiler, codegen]
+
+parser:
+  tech: rust
+  type: library crate
+  inputs: file contents
+  outputs:
+  functions:
+  dependencies:
+
+transpiler:
+  tech: rust
+  type: library crate
+  inputs: rust code
+  outputs: rust code
+  functions:
+  dependencies:
+
+codegen:
+  tech: rust
+  type: library crate
+  inputs: rust code
+  outputs: target code
+  functions:
+    - perform target-specific optimizations
+    - call rustc with target
+  dependencies:

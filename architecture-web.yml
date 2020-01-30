@@ -1,0 +1,125 @@
+title: architecture
+
+cli:
+  tech: rust
+  type: binary crate
+  inputs: command line arguments
+  outputs: wasm + js glue code
+  functions:
+    - parse command line arguments into configuration
+    - drive compiler using configuration
+    - provide usage information
+  dependencies: compiler
+
+compiler:
+  tech: rust
+  type: library crate
+  inputs: file name or source code
+  outputs: wasm + js glue code
+  functions:
+    - read file contents
+    - call parser with file contents and preprocess hooks
+    - call markup-to-dom to generate DOM manipulation code using the runtime
+    - call transpiler to wire up reactivity and mark wasm functions
+    - call codegen with full rust code
+  dependencies: [parser, transpiler, codegen]
+
+parser:
+  tech: rust
+  type: library crate
+  inputs: source code
+  hooks: preprocess per section, markup, script, and style
+  outputs: ast
+  functions:
+    - parse the source code into script, style, and template sections
+  dependencies: [html/xml parser]
+
+markup-to-dom:
+  tech: rust
+  type: library crate
+  inputs: ast
+  outputs: rust code, variable mappings
+  functions:
+    - use the parsed template to generate code using the runtime library for
+      manipulation of child components and DOM elements
+    - generated code should create child nodes recursively, bottoming out on the
+      DOM elements, and ultimately correspond to minimal calls to DOM APIs
+    - mark functions for exporting to wasm using [wasm-bindgen]
+  dependencies:
+
+transpiler:
+  tech: rust
+  type: library crate
+  inputs: script section source/ast, and template variable mappings
+  outputs: rust code
+  functions:
+    - add invalidation calls and wire up the reactivity engine, creating a
+      dependency graph with the relations between variables
+    - establish the relations between variables and template engine
+      parameters
+    - mark functions for exporting to wasm using [wasm-bindgen]
+  dependencies:
+
+codegen:
+  tech: rust
+  type: library crate
+  inputs: rust code
+  outputs: wasm + js glue code
+  functions:
+    - perform optimizations such as batching DOM operations
+    - call rustc with target wasm-unknown-unknown, or wasm-bindgen/wasm-pack
+  dependencies: [rustc/cargo, wasm-bindgen/wasm-pack]
+
+
+
+node-cargo-bindings:
+  tech: js
+  type: node package
+  inputs: source code
+
+node-native-bindings:
+  tech: rust
+  type: library crate + node package
+  inputs: source code
+
+wasm-bindings:
+  tech: rust
+  type: library crate + node package
+  inputs: source code
+
+node-bindings: [wasm-bindings, node-cargo-bindings, node-native-bindings]
+
+browser-bindings: [wasm-bindings]
+
+
+
+rollup-plugin:
+  tech: js
+  type: node package
+  inputs: source code
+  outputs: wasm + js glue code
+  dependencies: [node-bindings]
+
+webpack-loader:
+  tech: js
+  type: node package
+  inputs: source code
+  outputs: wasm + js glue code
+  dependencies: [node-bindings]
+
+
+
+problems:
+  - generating one wasm file per component seems excessive, is it possible to
+    create larger wasm bundles from parts?
+  - how to avoid repeatedly linking the same libraries used over multiple
+    components?
+  - is it possible to do whole program compilation and optimization with
+    existing bundlers?
+  - is it possible to perform only compilation of individual modules and then
+    linking everything together in a single library?
+  - what about the js glue code?
+  - needed or nice-to-haves? - custom bundler, custom wasm-pack, custom
+    wasm-bindgen
+  - how to deal with logging, dependency injection?
+  - how to deal with differences in environments (println! vs console.log)?
